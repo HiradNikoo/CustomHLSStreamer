@@ -1,0 +1,41 @@
+{
+  "name": "custom-hls-streamer",
+  "version": "1.0.0",
+  "description": "Production-ready Node.js application for dynamic HLS streaming with FFmpeg, named pipes, and ZeroMQ",
+  "main": "custom-hls-streamer.js",
+  "scripts": {
+    "start": "node custom-hls-streamer.js",
+    "dev": "nodemon custom-hls-streamer.js",
+    "test": "node -e \"console.log('Testing configuration...'); require('./custom-hls-streamer.js');\""
+  },
+  "keywords": [
+    "hls",
+    "streaming",
+    "ffmpeg",
+    "nodejs",
+    "zeromq",
+    "fifo",
+    "live-streaming",
+    "video"
+  ],
+  "author": "AI Assistant",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "zeromq": "^6.0.0-beta.17"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "bugs": {
+    "url": "."
+  },
+  "homepage": "."
+}
