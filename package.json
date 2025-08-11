@@ -2,11 +2,24 @@
   "name": "custom-hls-streamer",
   "version": "1.0.0",
   "description": "Production-ready Node.js application for dynamic HLS streaming with FFmpeg, named pipes, and ZeroMQ",
-  "main": "custom-hls-streamer.js",
+  "main": "src/app.js",
   "scripts": {
-    "start": "node custom-hls-streamer.js",
-    "dev": "nodemon custom-hls-streamer.js",
-    "test": "node -e \"console.log('Testing configuration...'); require('./custom-hls-streamer.js');\""
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "jest tests/unit --verbose",
+    "test:integration": "jest tests/integration --verbose --runInBand",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/ tests/ --ext .js",
+    "lint:fix": "eslint src/ tests/ --ext .js --fix",
+    "clean": "rm -rf hls/ fifos/ test_hls/ test_fifos/ temp_test_files/",
+    "build": "echo 'No build step required for Node.js application'",
+    "validate": "node -e \"const {validateConfig} = require('./src/config'); validateConfig(); console.log('✅ Configuration is valid');\"",
+    "health": "curl -f http://localhost:3000/api/health || exit 1",
+    "docs": "echo 'Documentation available in README.md'",
+    "legacy:start": "node custom-hls-streamer.js",
+    "legacy:test": "node test-hls-api.js"
   },
   "keywords": [
     "hls",
@@ -16,7 +29,10 @@
     "zeromq",
     "fifo",
     "live-streaming",
-    "video"
+    "video",
+    "real-time",
+    "multimedia",
+    "broadcast"
   ],
   "author": "AI Assistant",
   "license": "MIT",
@@ -25,10 +41,15 @@
     "zeromq": "^6.0.0-beta.17"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0",
+    "eslint": "^8.56.0",
+    "eslint-config-node": "^4.1.0",
+    "supertest": "^6.3.3"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   },
   "repository": {
     "type": "git",
@@ -37,5 +58,68 @@
   "bugs": {
     "url": "."
   },
-  "homepage": "."
+  "homepage": ".",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/app.js"
+    ],
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/helpers/testSetup.js"
+    ]
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true,
+      "es2021": true,
+      "jest": true
+    },
+    "extends": [
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": "latest"
+    },
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+      "prefer-const": "error",
+      "no-var": "error"
+    }
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src/"
+    ],
+    "ext": "js,json",
+    "ignore": [
+      "tests/",
+      "hls/",
+      "fifos/"
+    ],
+    "env": {
+      "NODE_ENV": "development",
+      "LOG_LEVEL": "debug"
+    }
+  },
+  "directories": {
+    "test": "tests",
+    "lib": "src"
+  },
+  "files": [
+    "src/",
+    "public/",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ]
 }

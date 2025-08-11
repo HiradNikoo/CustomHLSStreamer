@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom HLS Streamer - Dashboard</title>
+    <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+    <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .video-container {
+            grid-column: 1;
+        }
+        
+        .controls {
+            grid-column: 2;
+        }
+        
+        .status-section {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .video-js {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+        }
+        
+        .control-group {
+            margin-bottom: 25px;
+        }
+        
+        .control-group h3 {
+            margin-bottom: 15px;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .status-card {
+            text-align: center;
+        }
+        
+        .status-indicator {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-online {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+        
+        .status-offline {
+            background: linear-gradient(135deg, #f44336, #da190b);
+        }
+        
+        .status-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+        
+        .api-section {
+            margin-top: 30px;
+        }
+        
+        .api-section h2 {
+            margin-bottom: 20px;
+            color: #2d3748;
+            text-align: center;
+        }
+        
+        .api-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .api-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .api-card h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .api-card pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        
+        .log-container {
+            height: 200px;
+            overflow-y: auto;
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.info { color: #68d391; }
+        .log-entry.warn { color: #faf089; }
+        .log-entry.error { color: #fc8181; }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Custom HLS Streamer</h1>
+            <p>Professional live streaming with dynamic content control</p>
+        </div>
+        
+        <div class="dashboard-grid">
+            <!-- Video Player -->
+            <div class="card video-container">
+                <h2>Live Stream</h2>
+                <video-js
+                    id="hls-player"
+                    class="video-js vjs-default-skin"
+                    controls
+                    preload="auto"
+                    data-setup='{}'>
+                    <source src="/hls/stream.m3u8" type="application/x-mpegURL">
+                    <p class="vjs-no-js">
+                        To view this video please enable JavaScript, and consider upgrading to a
+                        <a href="https://videojs.com/html5-video-support/" target="_blank">
+                            web browser that supports HTML5 video
+                        </a>.
+                    </p>
+                </video-js>
+                <div style="margin-top: 15px;">
+                    <strong>Stream URL:</strong>
+                    <code id="stream-url">Loading...</code>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="card controls">
+                <div class="control-group">
+                    <h3>Content Update</h3>
+                    <div class="form-group">
+                        <label for="content-path">Video File Path</label>
+                        <input type="text" id="content-path" placeholder="/path/to/video.mp4">
+                    </div>
+                    <button class="btn" onclick="updateContent()">Update Content</button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Layer Overlay</h3>
+                    <div class="form-group">
+                        <label for="layer-index">Layer Index</label>
+                        <select id="layer-index">
+                            <option value="0">Layer 0</option>
+                            <option value="1">Layer 1</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="overlay-path">Overlay File Path</label>
+                        <input type="text" id="overlay-path" placeholder="/path/to/overlay.png">
+                    </div>
+                    <button class="btn" onclick="updateLayer()">Update Layer</button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Filter Command</h3>
+                    <div class="form-group">
+                        <label for="filter-command">ZMQ Filter Command</label>
+                        <textarea id="filter-command" rows="3" placeholder="Parsed_overlay_1 x=200:y=300"></textarea>
+                    </div>
+                    <button class="btn" onclick="sendFilter()">Send Filter</button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Quick Actions</h3>
+                    <button class="btn" onclick="moveOverlay(100, 100)" style="margin-bottom: 10px;">Move to Top-Left</button>
+                    <button class="btn" onclick="moveOverlay(320, 180)" style="margin-bottom: 10px;">Move to Center</button>
+                    <button class="btn" onclick="setOpacity(0.5)">Set 50% Opacity</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Section -->
+        <div class="card">
+            <div class="status-section">
+                <div class="status-card">
+                    <div class="status-indicator status-offline" id="ffmpeg-status">
+                        ❌
+                    </div>
+                    <h4>FFmpeg</h4>
+                    <p id="ffmpeg-text">Checking...</p>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-indicator status-offline" id="zmq-status">
+                        ❌
+                    </div>
+                    <h4>ZeroMQ</h4>
+                    <p id="zmq-text">Checking...</p>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-indicator status-offline" id="hls-status">
+                        ❌
+                    </div>
+                    <h4>HLS Output</h4>
+                    <p id="hls-text">Checking...</p>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-indicator status-warning" id="uptime-status">
+                        ⏱️
+                    </div>
+                    <h4>Uptime</h4>
+                    <p id="uptime-text">Loading...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Logs -->
+        <div class="card">
+            <h3>Activity Log</h3>
+            <div class="log-container" id="log-container">
+                <div class="log-entry info">[INFO] Dashboard loaded</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- API Examples Section -->
+    <div class="container api-section">
+        <div class="card">
+            <h2>API Examples</h2>
+            <div class="api-examples">
+                <div class="api-card">
+                    <h4>Content Update (curl)</h4>
+                    <pre>curl -X POST http://localhost:3000/api/update \
+  -H "Content-Type: application/json" \
+  -d '{"type":"content","data":"/path/to/video.mp4"}'</pre>
+                </div>
+                
+                <div class="api-card">
+                    <h4>Layer Update (curl)</h4>
+                    <pre>curl -X POST http://localhost:3000/api/update \
+  -H "Content-Type: application/json" \
+  -d '{"type":"layer","data":{"index":0,"path":"/overlay.png"}}'</pre>
+                </div>
+                
+                <div class="api-card">
+                    <h4>Filter Command (curl)</h4>
+                    <pre>curl -X POST http://localhost:3000/api/update \
+  -H "Content-Type: application/json" \
+  -d '{"type":"filter","data":{"command":"Parsed_overlay_1 x=100"}}'</pre>
+                </div>
+                
+                <div class="api-card">
+                    <h4>Status Check (curl)</h4>
+                    <pre>curl http://localhost:3000/api/status</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let player;
+        let statusInterval;
+        
+        // Initialize Video.js player
+        document.addEventListener('DOMContentLoaded', function() {
+            player = videojs('hls-player', {
+                liveui: true,
+                responsive: true,
+                fluid: true,
+                playbackRates: [0.5, 1, 1.25, 1.5, 2],
+                plugins: {}
+            });
+            
+            // Handle player errors
+            player.on('error', function() {
+                log('error', 'Player error occurred, attempting to reload...');
+                setTimeout(() => {
+                    player.src('/hls/stream.m3u8');
+                    player.load();
+                }, 5000);
+            });
+            
+            // Start status monitoring
+            updateStatus();
+            statusInterval = setInterval(updateStatus, 10000);
+            
+            // Update stream URL display
+            document.getElementById('stream-url').textContent = window.location.origin + '/hls/stream.m3u8';
+        });
+        
+        // API Functions
+        async function apiCall(endpoint, data = null) {
+            try {
+                const options = {
+                    method: data ? 'POST' : 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                
+                return { success: response.ok, data: result, status: response.status };
+            } catch (error) {
+                log('error', `API call failed: ${error.message}`);
+                return { success: false, error: error.message };
+            }
+        }
+        
+        async function updateContent() {
+            const path = document.getElementById('content-path').value;
+            if (!path) {
+                log('warn', 'Please enter a content file path');
+                return;
+            }
+            
+            log('info', `Updating content to: ${path}`);
+            const result = await apiCall('/api/update', {
+                type: 'content',
+                data: path
+            });
+            
+            if (result.success) {
+                log('info', result.data.message);
+            } else {
+                log('error', `Content update failed: ${result.data?.message || result.error}`);
+            }
+        }
+        
+        async function updateLayer() {
+            const index = parseInt(document.getElementById('layer-index').value);
+            const path = document.getElementById('overlay-path').value;
+            
+            if (!path) {
+                log('warn', 'Please enter an overlay file path');
+                return;
+            }
+            
+            log('info', `Updating layer ${index} to: ${path}`);
+            const result = await apiCall('/api/update', {
+                type: 'layer',
+                data: { index, path }
+            });
+            
+            if (result.success) {
+                log('info', result.data.message);
+            } else {
+                log('error', `Layer update failed: ${result.data?.message || result.error}`);
+            }
+        }
+        
+        async function sendFilter() {
+            const command = document.getElementById('filter-command').value;
+            if (!command) {
+                log('warn', 'Please enter a filter command');
+                return;
+            }
+            
+            log('info', `Sending filter command: ${command}`);
+            const result = await apiCall('/api/update', {
+                type: 'filter',
+                data: { command }
+            });
+            
+            if (result.success) {
+                log('info', result.data.message);
+            } else {
+                log('error', `Filter command failed: ${result.data?.message || result.error}`);
+            }
+        }
+        
+        async function moveOverlay(x, y) {
+            const command = `Parsed_overlay_1 x=${x}:y=${y}`;
+            document.getElementById('filter-command').value = command;
+            await sendFilter();
+        }
+        
+        async function setOpacity(alpha) {
+            const command = `Parsed_overlay_1 alpha=${alpha}`;
+            document.getElementById('filter-command').value = command;
+            await sendFilter();
+        }
+        
+        async function updateStatus() {
+            const result = await apiCall('/api/status');
+            
+            if (result.success) {
+                const status = result.data;
+                
+                // Update FFmpeg status
+                updateStatusIndicator('ffmpeg', status.ffmpeg === 'running');
+                document.getElementById('ffmpeg-text').textContent = status.ffmpeg;
+                
+                // Update ZMQ status
+                updateStatusIndicator('zmq', status.zmq === 'connected');
+                document.getElementById('zmq-text').textContent = status.zmq;
+                
+                // Update HLS status
+                updateStatusIndicator('hls', status.hls?.generating || false);
+                document.getElementById('hls-text').textContent = 
+                    status.hls?.generating ? `${status.hls.segmentCount} segments` : 'Not generating';
+                
+                // Update uptime
+                const uptimeHours = Math.floor(status.uptime / 3600);
+                const uptimeMinutes = Math.floor((status.uptime % 3600) / 60);
+                document.getElementById('uptime-text').textContent = `${uptimeHours}h ${uptimeMinutes}m`;
+                
+                log('debug', 'Status updated');
+            } else {
+                log('error', 'Failed to fetch status');
+            }
+        }
+        
+        function updateStatusIndicator(service, isOnline) {
+            const indicator = document.getElementById(`${service}-status`);
+            if (isOnline) {
+                indicator.className = 'status-indicator status-online';
+                indicator.textContent = '✅';
+            } else {
+                indicator.className = 'status-indicator status-offline';
+                indicator.textContent = '❌';
+            }
+        }
+        
+        function log(level, message) {
+            const container = document.getElementById('log-container');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            entry.textContent = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Keep only last 100 log entries
+            while (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+        });
+    </script>
+</body>
+</html>

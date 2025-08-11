@@ -2,6 +2,8 @@
 
 A production-ready Node.js application for creating highly customizable live HLS streams with real-time content updates using FFmpeg, named pipes (FIFOs), and ZeroMQ.
 
+**🎉 NEW: Now with professional modular structure, comprehensive testing, and enhanced features!**
+
 ## Features
 
 🎥 **Dynamic Content Switching** - Update video content without interrupting the stream  
@@ -10,7 +12,18 @@ A production-ready Node.js application for creating highly customizable live HLS
 🚀 **HLS Live Streaming** - Automatic segment generation and cleanup  
 🌐 **HTTP API** - RESTful API for real-time stream control  
 ⚡ **Zero Downtime** - Seamless content transitions using FFmpeg concat demuxer  
-🛡️ **Production Ready** - Comprehensive error handling and logging  
+🛡️ **Production Ready** - Comprehensive error handling and logging
+
+### 🆕 New in Modular Version
+
+🧪 **Comprehensive Testing** - Full test suite with Jest (unit + integration tests)  
+🎛️ **Enhanced Dashboard** - Beautiful, responsive web interface with live monitoring  
+🔒 **Security Improvements** - Input validation, rate limiting, and security hardening  
+📊 **Better Monitoring** - Health checks, metrics, and structured logging  
+🏗️ **Modular Architecture** - Clean separation of concerns, better maintainability  
+🌍 **Environment Config** - Support for environment variables and .env files  
+📱 **Mobile Responsive** - Dashboard works perfectly on mobile devices  
+🔧 **Developer Experience** - Better error messages, debugging, and development tools  
 
 ## Requirements
 
@@ -58,8 +71,25 @@ mkdir -p assets
 
 ## Quick Start
 
+### New Modular Version (Recommended)
+
 ```bash
+# Install dependencies
+npm install
+
 # Start the streamer
+npm start
+
+# Or for development with auto-restart
+npm run dev
+```
+
+### Legacy Version (Single File)
+
+```bash
+# Start the original monolithic version
+npm run legacy:start
+# or
 node custom-hls-streamer.js
 ```
 
@@ -69,9 +99,32 @@ The application will:
 - Start FFmpeg with HLS output
 - Launch HTTP server on `http://localhost:3000`
 
-**Stream URL:** `http://localhost:3000/hls/stream.m3u8`
+**Stream URL:** `http://localhost:3000/hls/stream.m3u8`  
+**Dashboard:** `http://localhost:3000/` (enhanced in modular version)
 
 ## Configuration
+
+### New Modular Version
+
+Configuration is managed through environment variables and `src/config/index.js`:
+
+```bash
+# Create .env file for custom configuration
+PORT=3000
+HOST=0.0.0.0
+ZMQ_PORT=5555
+HLS_SEGMENT_TIME=2
+HLS_PLAYLIST_SIZE=5
+HLS_OUTPUT_DIR=./hls
+FIFO_BASE_DIR=./fifos
+FIFO_LAYERS=overlay1.fifo,overlay2.fifo
+INITIAL_CONTENT=./assets/default.mp4
+LOG_LEVEL=info
+FFMPEG_BINARY=ffmpeg
+FFMPEG_PRESET=ultrafast
+```
+
+### Legacy Version
 
 Edit the `CONFIG` object in `custom-hls-streamer.js`:
 
@@ -161,6 +214,94 @@ Response:
     "hlsPlaylistSize": 5
   }
 }
+```
+
+## 🏗️ New Modular Architecture
+
+The application has been restructured into a professional, modular architecture:
+
+```
+src/
+├── app.js                    # Main application entry point
+├── config/
+│   └── index.js             # Configuration management with env vars
+├── controllers/
+│   └── streamController.js  # API endpoint handlers
+├── services/
+│   ├── ffmpegService.js     # FFmpeg process management
+│   ├── fifoService.js       # FIFO/named pipe operations
+│   ├── hlsService.js        # HLS output management
+│   └── zmqService.js        # ZeroMQ communication
+├── middleware/
+│   └── validation.js        # Request validation & security
+├── routes/
+│   └── api.js              # API route definitions
+└── utils/
+    ├── logger.js           # Structured logging
+    └── shutdown.js         # Graceful shutdown handling
+
+tests/
+├── unit/                   # Unit tests for all modules
+├── integration/            # API integration tests
+└── helpers/                # Test utilities
+
+public/
+└── dashboard.html          # Enhanced web dashboard
+```
+
+## 🧪 Testing & Development
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run only unit tests
+npm run test:unit
+
+# Run only integration tests
+npm run test:integration
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in watch mode (for development)
+npm run test:watch
+```
+
+### Development Commands
+
+```bash
+# Start in development mode (auto-restart)
+npm run dev
+
+# Validate configuration
+npm run validate
+
+# Check application health
+npm run health
+
+# Clean up generated files
+npm run clean
+
+# Run linting
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+```
+
+### Migration from Legacy Version
+
+If you're upgrading from the single-file version:
+
+```bash
+# Run the migration assistant
+node migrate.js
+
+# Or with automatic dependency installation
+node migrate.js --install
 ```
 
 ## Advanced Usage
