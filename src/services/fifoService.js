@@ -50,7 +50,7 @@ class FifoService {
       // Check if FIFO already exists
       if (fs.existsSync(fifoPath)) {
         const stats = fs.statSync(fifoPath);
-        if (stats.isFIFO()) {
+        if (process.platform === 'win32' || stats.isFIFO()) {
           logger.debug(`FIFO already exists: ${fifoPath}`);
           return;
         } else {
@@ -59,9 +59,18 @@ class FifoService {
         }
       }
       
-      // Create the named pipe
-      await execAsync(`mkfifo "${fifoPath}"`);
-      logger.debug(`Created FIFO: ${fifoPath}`);
+      // Create the named pipe based on platform
+      if (process.platform === 'win32') {
+        // On Windows, we'll use regular files instead of FIFOs
+        // This is a limitation but works for basic functionality
+        fs.writeFileSync(fifoPath, '');
+        logger.debug(`Created placeholder file for Windows: ${fifoPath}`);
+        logger.warn('Windows detected: Using regular files instead of FIFOs. Some advanced features may be limited.');
+      } else {
+        // On Unix-like systems, create actual FIFO
+        await execAsync(`mkfifo "${fifoPath}"`);
+        logger.debug(`Created FIFO: ${fifoPath}`);
+      }
     } catch (error) {
       logger.error(`Failed to create FIFO ${fifoPath}:`, error.message);
       throw error;

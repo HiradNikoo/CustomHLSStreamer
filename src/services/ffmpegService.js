@@ -29,43 +29,72 @@ class FFmpegService {
   buildArgs() {
     const args = [];
     
-    // Input arguments - Main content FIFO
-    args.push(
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', this.fifoService.getContentFifoPath()
-    );
+    if (process.platform === 'win32') {
+      // Simplified Windows approach - use test pattern for now
+      args.push(
+        '-f', 'lavfi',
+        '-i', 'testsrc=duration=3600:size=1280x720:rate=30',
+        '-f', 'lavfi', 
+        '-i', 'sine=frequency=1000:duration=3600'
+      );
+      
+      // Simple video encoding for Windows
+      args.push(
+        '-c:v', 'libx264',
+        '-preset', CONFIG.ffmpeg.preset,
+        '-crf', String(CONFIG.ffmpeg.crf),
+        '-g', String(CONFIG.ffmpeg.gop),
+        '-keyint_min', String(CONFIG.ffmpeg.gop),
+        '-sc_threshold', '0',
+        '-force_key_frames', `expr:gte(t,n_forced*${CONFIG.hls.segmentTime})`
+      );
+      
+      // Audio encoding
+      args.push(
+        '-c:a', 'aac',
+        '-b:a', CONFIG.ffmpeg.audioBitrate,
+        '-ar', '48000'
+      );
+    } else {
+      // Unix-like systems - use FIFO approach
+      // Input arguments - Main content FIFO
+      args.push(
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', this.fifoService.getContentFifoPath()
+      );
+      
+      // Layer input FIFOs
+      CONFIG.fifos.layers.forEach((_, index) => {
+        args.push('-i', this.fifoService.getLayerFifoPath(index));
+      });
+      
+      // Build filter_complex
+      const filterComplex = this.buildFilterComplex();
+      args.push('-filter_complex', filterComplex);
+      
+      // Video encoding
+      args.push(
+        '-map', '[vout]',
+        '-c:v', 'libx264',
+        '-preset', CONFIG.ffmpeg.preset,
+        '-crf', String(CONFIG.ffmpeg.crf),
+        '-g', String(CONFIG.ffmpeg.gop),
+        '-keyint_min', String(CONFIG.ffmpeg.gop),
+        '-sc_threshold', '0',
+        '-force_key_frames', `expr:gte(t,n_forced*${CONFIG.hls.segmentTime})`
+      );
+      
+      // Audio encoding
+      args.push(
+        '-map', '[aout]',
+        '-c:a', 'aac',
+        '-b:a', CONFIG.ffmpeg.audioBitrate,
+        '-ar', '48000'
+      );
+    }
     
-    // Layer input FIFOs
-    CONFIG.fifos.layers.forEach((_, index) => {
-      args.push('-i', this.fifoService.getLayerFifoPath(index));
-    });
-    
-    // Build filter_complex
-    const filterComplex = this.buildFilterComplex();
-    args.push('-filter_complex', filterComplex);
-    
-    // Video encoding
-    args.push(
-      '-map', '[vout]',
-      '-c:v', 'libx264',
-      '-preset', CONFIG.ffmpeg.preset,
-      '-crf', String(CONFIG.ffmpeg.crf),
-      '-g', String(CONFIG.ffmpeg.gop),
-      '-keyint_min', String(CONFIG.ffmpeg.gop),
-      '-sc_threshold', '0',
-      '-force_key_frames', `expr:gte(t,n_forced*${CONFIG.hls.segmentTime})`
-    );
-    
-    // Audio encoding
-    args.push(
-      '-map', '[aout]',
-      '-c:a', 'aac',
-      '-b:a', CONFIG.ffmpeg.audioBitrate,
-      '-ar', '48000'
-    );
-    
-    // HLS output options
+    // HLS output options (same for all platforms)
     args.push(
       '-f', 'hls',
       '-hls_time', String(CONFIG.hls.segmentTime),
@@ -82,6 +111,11 @@ class FFmpegService {
    * Build filter_complex string for overlays and ZMQ integration
    */
   buildFilterComplex() {
+    if (process.platform === 'win32') {
+      // Simplified filter for Windows - just add text overlay without font file
+      return `[0:v]drawtext=text='HLS Stream - Windows Mode':fontsize=24:fontcolor=white:x=10:y=10[vout];[1:a]anull[aout]`;
+    }
+    
     const numLayers = CONFIG.fifos.layers.length;
     let filter = '';
     
@@ -209,6 +243,11 @@ class FFmpegService {
    * Initialize content with default file
    */
   async initializeContent() {
+    if (process.platform === 'win32') {
+      logger.info('Windows mode: Using built-in test pattern, no content initialization needed');
+      return;
+    }
+    
     if (fs.existsSync(CONFIG.initialContent)) {
       logger.info(`Initializing with default content: ${CONFIG.initialContent}`);
       await this.fifoService.writeContent(CONFIG.initialContent);
