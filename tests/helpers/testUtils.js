@@ -31,6 +31,9 @@ class TestFileManager {
    * Create a test video file (placeholder)
    */
   createTestVideo(filename = 'test_video.mp4') {
+    // Ensure temp directory exists
+    this.setup();
+    
     const filePath = path.join(this.tempDir, filename);
     
     // Create a minimal MP4 file placeholder
@@ -45,6 +48,9 @@ class TestFileManager {
    * Create a test image file (placeholder)
    */
   createTestImage(filename = 'test_overlay.png') {
+    // Ensure temp directory exists
+    this.setup();
+    
     const filePath = path.join(this.tempDir, filename);
     
     // Create a minimal PNG file placeholder
@@ -59,6 +65,9 @@ class TestFileManager {
    * Create a test text file
    */
   createTestFile(filename, content) {
+    // Ensure temp directory exists
+    this.setup();
+    
     const filePath = path.join(this.tempDir, filename);
     fs.writeFileSync(filePath, content);
     this.createdFiles.push(filePath);

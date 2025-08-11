@@ -23,7 +23,17 @@ A production-ready Node.js application for creating highly customizable live HLS
 🏗️ **Modular Architecture** - Clean separation of concerns, better maintainability  
 🌍 **Environment Config** - Support for environment variables and .env files  
 📱 **Mobile Responsive** - Dashboard works perfectly on mobile devices  
-🔧 **Developer Experience** - Better error messages, debugging, and development tools  
+🔧 **Developer Experience** - Better error messages, debugging, and development tools
+
+### 🌐 React.js Web Dashboard
+
+🎥 **Professional Video Player** - Video.js with native HLS support and dark theme  
+⚡ **Real-time Controls** - Interactive stream management with instant feedback  
+📚 **API Documentation** - Complete API reference with live testing and examples  
+📊 **Live Monitoring** - Real-time status updates and system metrics  
+📝 **Activity Logging** - Filtered, searchable logs with export functionality  
+🎨 **Modern Design** - Ant Design components with custom dark theme  
+📱 **Fully Responsive** - Optimized for desktop, tablet, and mobile devices  
 
 ## Requirements
 
@@ -77,11 +87,22 @@ mkdir -p assets
 # Install dependencies
 npm install
 
-# Start the streamer
+# Start the streamer backend
 npm start
 
 # Or for development with auto-restart
 npm run dev
+```
+
+#### With React.js Web Dashboard
+
+```bash
+# Setup and start the web dashboard
+node setup-web.js
+npm run web:start
+
+# Or manually:
+# cd web && npm install && npm start
 ```
 
 ### Legacy Version (Single File)
@@ -100,7 +121,8 @@ The application will:
 - Launch HTTP server on `http://localhost:3000`
 
 **Stream URL:** `http://localhost:3000/hls/stream.m3u8`  
-**Dashboard:** `http://localhost:3000/` (enhanced in modular version)
+**Backend Dashboard:** `http://localhost:3000/` (basic HTML version)  
+**React Dashboard:** `http://localhost:3001/` (full-featured React.js version)
 
 ## Configuration
 

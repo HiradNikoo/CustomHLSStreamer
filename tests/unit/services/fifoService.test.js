@@ -94,6 +94,8 @@ describe('FifoService', () => {
     });
 
     test('should return true for valid file', async () => {
+      // Ensure the temp directory exists
+      testFileManager.setup();
       const testFile = testFileManager.createTestVideo('test_content.mp4');
       
       // Mock the FIFO write operation

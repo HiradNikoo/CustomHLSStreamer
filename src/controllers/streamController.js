@@ -84,7 +84,8 @@ class StreamController {
         config: {
           layers: this.fifoService.constructor.CONFIG?.fifos?.layers?.length || 0,
           hlsSegmentTime: this.hlsService.constructor.CONFIG?.hls?.segmentTime || 0,
-          hlsPlaylistSize: this.hlsService.constructor.CONFIG?.hls?.playlistSize || 0
+          hlsPlaylistSize: this.hlsService.constructor.CONFIG?.hls?.playlistSize || 0,
+          platform: process.platform
         },
         timestamp: new Date().toISOString()
       };

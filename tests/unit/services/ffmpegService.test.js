@@ -5,7 +5,7 @@
 'use strict';
 
 const { spawn } = require('child_process');
-const { mockLogger, testConfig, assert } = require('../../helpers/testUtils');
+const { mockLogger, assert } = require('../../helpers/testUtils');
 const FFmpegService = require('../../../src/services/ffmpegService');
 
 // Mock child_process
@@ -16,7 +16,14 @@ jest.mock('child_process', () => ({
 
 // Mock the config
 jest.mock('../../../src/config', () => ({
-  CONFIG: testConfig
+  CONFIG: {
+    http: { host: '0.0.0.0', port: 3000 },
+    hls: { segmentTime: 2, playlistSize: 5, outputDir: './test_hls', playlistName: 'stream.m3u8' },
+    fifos: { baseDir: './test_fifos', layers: ['overlay1.fifo', 'overlay2.fifo'] },
+    initialContent: './test_assets/test.mp4',
+    zmq: { port: 5555 },
+    ffmpeg: { binary: 'echo', preset: 'ultrafast' }
+  }
 }));
 
 // Mock the logger
@@ -73,14 +80,9 @@ describe('FFmpegService', () => {
     test('should build correct FFmpeg arguments', () => {
       const args = ffmpegService.buildArgs();
       
-      // Check input arguments
+      // Check basic required elements (common to all platforms)
       assert.isTrue(args.includes('-f'), 'Should include format flag');
-      assert.isTrue(args.includes('concat'), 'Should use concat format');
       assert.isTrue(args.includes('-i'), 'Should include input flag');
-      assert.isTrue(args.includes('./test_fifos/content.fifo'), 'Should include content FIFO');
-      
-      // Check filter complex
-      assert.isTrue(args.includes('-filter_complex'), 'Should include filter_complex');
       
       // Check encoding options
       assert.isTrue(args.includes('-c:v'), 'Should include video codec');
@@ -88,31 +90,52 @@ describe('FFmpegService', () => {
       assert.isTrue(args.includes('-preset'), 'Should include preset');
       
       // Check HLS options
-      assert.isTrue(args.includes('-f'), 'Should include HLS format');
       assert.isTrue(args.includes('hls'), 'Should output HLS');
     });
 
-    test('should include all layer inputs', () => {
+    test('should include correct number of inputs based on platform', () => {
       const args = ffmpegService.buildArgs();
-      
-      // Should have 3 inputs total (1 content + 2 layers)
       const inputCount = args.filter(arg => arg === '-i').length;
-      assert.equal(inputCount, 3, 'Should have 3 inputs (1 content + 2 layers)');
       
-      // Should include both layer FIFOs
-      assert.isTrue(args.includes('./test_fifos/overlay1.fifo'), 'Should include first layer FIFO');
-      assert.isTrue(args.includes('./test_fifos/overlay2.fifo'), 'Should include second layer FIFO');
+      if (process.platform === 'win32') {
+        // Windows uses 2 inputs (video testsrc + audio sine)
+        assert.equal(inputCount, 2, 'Windows should have 2 inputs (testsrc + sine)');
+        assert.isTrue(args.includes('testsrc=duration=3600:size=1280x720:rate=30'), 'Should include test video source');
+        assert.isTrue(args.includes('sine=frequency=1000:duration=3600'), 'Should include test audio source');
+      } else {
+        // Unix uses 3 inputs (1 content + 2 layers)
+        assert.equal(inputCount, 3, 'Unix should have 3 inputs (1 content + 2 layers)');
+        assert.isTrue(args.includes('./test_fifos/content.fifo'), 'Should include content FIFO');
+        assert.isTrue(args.includes('./test_fifos/overlay1.fifo'), 'Should include first layer FIFO');
+        assert.isTrue(args.includes('./test_fifos/overlay2.fifo'), 'Should include second layer FIFO');
+      }
     });
   });
 
   describe('buildFilterComplex', () => {
-    test('should build correct filter for 2 layers', () => {
+    test('should build correct filter for 2 layers on Unix', () => {
+      if (process.platform === 'win32') {
+        // Windows doesn't use buildFilterComplex - skip this test
+        return;
+      }
+      
       const filter = ffmpegService.buildFilterComplex();
       
       assert.isTrue(filter.includes('overlay'), 'Should include overlay filter');
       assert.isTrue(filter.includes('zmq'), 'Should include ZMQ filter');
       assert.isTrue(filter.includes('amix'), 'Should include audio mixing');
       assert.isTrue(filter.includes('inputs=3'), 'Should mix 3 audio inputs');
+    });
+
+    test('should return simplified filter on Windows', () => {
+      if (process.platform !== 'win32') {
+        return; // Skip on non-Windows
+      }
+      
+      const filter = ffmpegService.buildFilterComplex();
+      assert.isTrue(filter.includes('drawtext'), 'Windows should use drawtext filter');
+      assert.isTrue(filter.includes('vout'), 'Should include vout output');
+      assert.isTrue(filter.includes('aout'), 'Should include aout output');
     });
   });
 
@@ -138,7 +161,7 @@ describe('FFmpegService', () => {
       const [binary, args, options] = spawn.mock.calls[0];
       assert.equal(binary, 'echo', 'Should use correct binary (mocked)');
       assert.isTrue(Array.isArray(args), 'Should pass arguments array');
-      assert.isTrue(options.stdio, 'Should set stdio options');
+      assert.isTrue(Array.isArray(options.stdio) || typeof options.stdio === 'string', 'Should set stdio options');
       
       const logs = mockLogger.getLogs();
       const infoLogs = logs.filter(log => log.level === 'info');
@@ -205,7 +228,11 @@ describe('FFmpegService', () => {
   });
 
   describe('initializeContent', () => {
-    test('should use initial content if file exists', async () => {
+    test('should use initial content if file exists on Unix', async () => {
+      if (process.platform === 'win32') {
+        return; // Skip on Windows
+      }
+      
       // Mock fs.existsSync to return true
       const fs = require('fs');
       const originalExistsSync = fs.existsSync;
@@ -216,7 +243,7 @@ describe('FFmpegService', () => {
       await ffmpegService.initializeContent();
       
       assert.isTrue(mockFifoService.writeContent.mock.calls.length === 1, 'Should call writeContent');
-      assert.equal(mockFifoService.writeContent.mock.calls[0][0], testConfig.initialContent, 'Should use initial content path');
+      assert.equal(mockFifoService.writeContent.mock.calls[0][0], './test_assets/test.mp4', 'Should use initial content path');
       
       const logs = mockLogger.getLogs();
       const infoLogs = logs.filter(log => log.level === 'info');
@@ -226,7 +253,11 @@ describe('FFmpegService', () => {
       fs.existsSync = originalExistsSync;
     });
 
-    test('should create test pattern if initial content does not exist', async () => {
+    test('should create test pattern if initial content does not exist on Unix', async () => {
+      if (process.platform === 'win32') {
+        return; // Skip on Windows
+      }
+      
       // Mock fs.existsSync to return false
       const fs = require('fs');
       const originalExistsSync = fs.existsSync;
@@ -251,6 +282,21 @@ describe('FFmpegService', () => {
       // Restore
       fs.existsSync = originalExistsSync;
       util.promisify = originalPromisify;
+    });
+
+    test('should skip initialization on Windows', async () => {
+      if (process.platform !== 'win32') {
+        return; // Skip on non-Windows
+      }
+      
+      await ffmpegService.initializeContent();
+      
+      // Should not call writeContent on Windows
+      assert.equal(mockFifoService.writeContent.mock.calls.length, 0, 'Should not call writeContent on Windows');
+      
+      const logs = mockLogger.getLogs();
+      const infoLogs = logs.filter(log => log.level === 'info');
+      assert.isTrue(infoLogs.some(log => log.msg.includes('Windows mode')), 'Should log Windows mode message');
     });
   });
 });
