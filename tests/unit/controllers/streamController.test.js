@@ -9,6 +9,9 @@ const StreamController = require('../../../src/controllers/streamController');
 
 // Mock the logger
 jest.mock('../../../src/utils/logger', () => mockLogger);
+jest.mock('../../../src/config', () => ({
+  CONFIG: { background: { color: 'black', text: '' } }
+}));
 
 describe('StreamController', () => {
   let streamController;
@@ -30,9 +33,10 @@ describe('StreamController', () => {
       sendInstruction: jest.fn(),
       isConnected: jest.fn()
     };
-    
+
     mockFFmpegService = {
-      isRunning: jest.fn()
+      isRunning: jest.fn(),
+      restart: jest.fn()
     };
     
     mockHlsService = {
@@ -153,10 +157,10 @@ describe('StreamController', () => {
         const response = mockRes.json.mock.calls[0][0];
         assert.isFalse(response.success, 'Should indicate failure');
         assert.isTrue(response.message.includes('Failed to update layer 1'), 'Should include failure message');
-      });
     });
+  });
 
-    describe('Filter Updates', () => {
+  describe('Filter Updates', () => {
       test('should handle successful filter command', async () => {
         mockReq.body = {
           type: 'filter',
@@ -211,6 +215,7 @@ describe('StreamController', () => {
         assert.isFalse(response.success, 'Should indicate failure');
         assert.isTrue(response.message.includes('Invalid update type'), 'Should include error message');
         assert.isTrue(response.validTypes.includes('content'), 'Should include valid types');
+        assert.isTrue(response.validTypes.includes('background'), 'Should include background type');
       });
 
       test('should handle errors gracefully', async () => {
@@ -235,6 +240,25 @@ describe('StreamController', () => {
         const errorLogs = logs.filter(log => log.level === 'error');
         assert.isTrue(errorLogs.some(log => log.msg.includes('Stream update error')), 'Should log error');
       });
+    });
+  });
+
+  describe('Background Updates', () => {
+    test('should update background and restart ffmpeg', async () => {
+      mockReq.body = {
+        type: 'background',
+        data: { color: 'red', text: 'Hi' }
+      };
+
+      mockFFmpegService.isRunning.mockReturnValue(true);
+      mockFFmpegService.restart.mockResolvedValue();
+
+      await streamController.updateStream(mockReq, mockRes);
+
+      assert.isTrue(mockFFmpegService.restart.mock.calls.length === 1, 'Should call restart');
+      const response = mockRes.json.mock.calls[0][0];
+      assert.isTrue(response.success, 'Should indicate success');
+      assert.isTrue(response.message.includes('Background updated'), 'Should include success message');
     });
   });
 

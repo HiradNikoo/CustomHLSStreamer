@@ -52,12 +52,12 @@ class FFmpegService {
     const args = [];
     
     if (!this.canUseFifos()) {
-      // Simplified Windows approach - use test pattern for now
+      // Simplified Windows approach - generate background color and silent audio
       args.push(
         '-f', 'lavfi',
-        '-i', 'testsrc=duration=3600:size=1280x720:rate=30',
-        '-f', 'lavfi', 
-        '-i', 'sine=frequency=1000:duration=3600'
+        '-i', `color=c=${CONFIG.background.color}:size=${CONFIG.background.size}:rate=30`,
+        '-f', 'lavfi',
+        '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000'
       );
       
       // Simple video encoding for Windows
@@ -78,19 +78,22 @@ class FFmpegService {
         '-ar', '48000'
       );
     } else {
-      // Systems with FIFO support - use FIFO approach
-      // Input arguments - Main content FIFO
+      // Systems with FIFO support - add background and FIFO inputs
       args.push(
+        '-f', 'lavfi',
+        '-i', `color=c=${CONFIG.background.color}:size=${CONFIG.background.size}:rate=30`,
+        '-f', 'lavfi',
+        '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000',
         '-f', 'concat',
         '-safe', '0',
         '-i', this.fifoService.getContentFifoPath()
       );
-      
+
       // Layer input FIFOs
       CONFIG.fifos.layers.forEach((_, index) => {
         args.push('-i', this.fifoService.getLayerFifoPath(index));
       });
-      
+
       // Build filter_complex
       const filterComplex = this.buildFilterComplex();
       args.push('-filter_complex', filterComplex);
@@ -134,46 +137,50 @@ class FFmpegService {
    */
   buildFilterComplex() {
     if (!this.canUseFifos()) {
-      // Simplified filter for Windows - just add text overlay without font file
-      return `[0:v]drawtext=text='HLS Stream - Windows Mode':fontsize=24:fontcolor=white:x=10:y=10[vout];[1:a]anull[aout]`;
-    }
-    
-    const numLayers = CONFIG.fifos.layers.length;
-    let filter = '';
-    
-    if (numLayers === 0) {
-      // No overlays, just pass through with ZMQ
-      filter = `[0:v]zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout];[0:a]anull[aout]`;
-    } else if (numLayers === 1) {
-      // Single overlay
-      filter = `[0:v][1:v]overlay=0:0,zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout];[0:a][1:a]amix=inputs=2[aout]`;
-    } else if (numLayers === 2) {
-      // Two overlays (as per default config)
-      filter = `[0:v][1:v]overlay=0:0[tmp];[tmp][2:v]overlay=100:100,zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout];[0:a][1:a][2:a]amix=inputs=3[aout]`;
-    } else {
-      // Extensible for more overlays - chain them
-      filter = '[0:v]';
-      for (let i = 1; i <= numLayers; i++) {
-        const isLast = i === numLayers;
-        const inputLabel = i === 1 ? '[0:v]' : '[tmp' + (i - 2) + ']';
-        const outputLabel = isLast ? '' : '[tmp' + (i - 1) + ']';
-        
-        if (i === 1) {
-          filter += `[${i}:v]overlay=0:0${outputLabel}`;
-        } else {
-          filter += `;${inputLabel}[${i}:v]overlay=${i * 50}:${i * 50}${outputLabel}`;
-        }
+      // Simplified filter for Windows
+      let chain = '[0:v]';
+      if (CONFIG.background.text) {
+        const text = CONFIG.background.text.replace(/:/g, '\\:');
+        chain += `drawtext=text='${text}':fontsize=24:fontcolor=white:x=10:y=10`;
       }
-      
-      // Add ZMQ filter to the last overlay
-      filter += `,zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout]`;
-      
-      // Audio mixing
-      const audioInputs = Array.from({length: numLayers + 1}, (_, i) => `[${i}:a]`).join('');
-      filter += `;${audioInputs}amix=inputs=${numLayers + 1}[aout]`;
+      chain += `,zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout]`;
+      return `${chain};[1:a]anull[aout]`;
     }
-    
-    return filter;
+
+    const numLayers = CONFIG.fifos.layers.length;
+    const parts = [];
+
+    // Background video with optional text
+    if (CONFIG.background.text) {
+      const text = CONFIG.background.text.replace(/:/g, '\\:');
+      parts.push(`[0:v]drawtext=text='${text}':fontsize=24:fontcolor=white:x=10:y=10[bg]`);
+    } else {
+      parts.push(`[0:v]scale=iw:ih[bg]`);
+    }
+
+    // Overlay main content onto background
+    parts.push(`[bg][2:v]overlay=0:0:eof_action=pass:shortest=0[tmp0]`);
+    let lastLabel = 'tmp0';
+
+    // Additional overlay layers
+    for (let i = 0; i < numLayers; i++) {
+      const inputIndex = i + 3; // layer inputs start after bg video/audio and content
+      const outLabel = i === numLayers - 1 ? 'tmp_final' : `tmp${i + 1}`;
+      parts.push(`[${lastLabel}][${inputIndex}:v]overlay=${(i + 1) * 50}:${(i + 1) * 50}:eof_action=pass:shortest=0[${outLabel}]`);
+      lastLabel = outLabel;
+    }
+
+    // ZMQ filter on final video
+    parts.push(`[${lastLabel}]zmq=bind_address=tcp\\://\\*\\:${CONFIG.zmq.port}[vout]`);
+
+    // Audio mixing (background audio + content + overlays)
+    const audioInputs = ['[1:a]', '[2:a]'];
+    for (let i = 0; i < numLayers; i++) {
+      audioInputs.push(`[${i + 3}:a]`);
+    }
+    parts.push(`${audioInputs.join('')}amix=inputs=${audioInputs.length}[aout]`);
+
+    return parts.join(';');
   }
 
   /**
@@ -271,6 +278,15 @@ class FFmpegService {
   }
 
   /**
+   * Restart FFmpeg process
+   */
+  async restart() {
+    this.stop();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await this.start();
+  }
+
+  /**
    * Check if FFmpeg process is running
    */
   isRunning() {
@@ -291,15 +307,15 @@ class FFmpegService {
       await this.fifoService.writeContent(CONFIG.initialContent);
     } else {
       logger.warn(`Initial content file not found: ${CONFIG.initialContent}`);
-      logger.info('Creating a basic test pattern as initial content...');
-      
+      logger.info('Creating a blank placeholder video as initial content...');
+
       try {
-        const testPatternPath = path.join(CONFIG.hls.outputDir, 'test_pattern.mp4');
-        await execAsync(`${CONFIG.ffmpeg.binary} -f lavfi -i testsrc=duration=60:size=1280x720:rate=30 -f lavfi -i sine=frequency=1000:duration=60 -c:v libx264 -c:a aac -t 60 "${testPatternPath}" -y`);
-        await this.fifoService.writeContent(testPatternPath);
-        logger.info('Created and initialized with test pattern');
+        const blankPath = path.join(CONFIG.hls.outputDir, 'blank.mp4');
+        await execAsync(`${CONFIG.ffmpeg.binary} -f lavfi -i color=c=${CONFIG.background.color}:size=${CONFIG.background.size}:rate=30 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -c:v libx264 -c:a aac -t 60 "${blankPath}" -y`);
+        await this.fifoService.writeContent(blankPath);
+        logger.info('Created and initialized with blank placeholder');
       } catch (error) {
-        logger.error('Failed to create test pattern:', error.message);
+        logger.error('Failed to create blank placeholder:', error.message);
       }
     }
   }

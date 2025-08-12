@@ -36,10 +36,12 @@ const StreamControls = ({ onAction, status, onLog }) => {
   const [contentForm] = Form.useForm();
   const [layerForm] = Form.useForm();
   const [filterForm] = Form.useForm();
+  const [backgroundForm] = Form.useForm();
   const [loading, setLoading] = useState({
     content: false,
     layer: false,
-    filter: false
+    filter: false,
+    background: false
   });
 
   // Dynamic layer management
@@ -132,6 +134,23 @@ const StreamControls = ({ onAction, status, onLog }) => {
     }
   };
 
+  const handleUpdateBackground = async (values) => {
+    setLoading({ ...loading, background: true });
+    try {
+      const result = await onAction('background', values);
+      if (result.success) {
+        message.success('Background updated successfully');
+        backgroundForm.resetFields();
+      } else {
+        message.error(result.message || 'Failed to update background');
+      }
+    } catch (error) {
+      message.error('Failed to update background');
+    } finally {
+      setLoading({ ...loading, background: false });
+    }
+  };
+
   const handleSendFilter = async (values) => {
     setLoading({ ...loading, filter: true });
     try {
@@ -202,6 +221,62 @@ const StreamControls = ({ onAction, status, onLog }) => {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {/* Background Settings */}
+      <Card
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VideoCameraOutlined style={{ color: '#1890ff' }} />
+            <Title level={5} style={{ margin: 0, color: '#ffffff' }}>
+              Background Layer
+            </Title>
+          </div>
+        }
+        size="small"
+      >
+        <Form
+          form={backgroundForm}
+          layout="vertical"
+          onFinish={handleUpdateBackground}
+        >
+          <Form.Item
+            label={<Text style={{ color: '#ffffff' }}>Color</Text>}
+            name="color"
+          >
+            <Input
+              placeholder="e.g., black or #000000"
+              style={{ background: '#262626', border: '1px solid #404040', color: '#ffffff' }}
+            />
+          </Form.Item>
+          <Form.Item
+            label={<Text style={{ color: '#ffffff' }}>Text</Text>}
+            name="text"
+          >
+            <Input
+              placeholder="Optional text"
+              style={{ background: '#262626', border: '1px solid #404040', color: '#ffffff' }}
+            />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<SendOutlined />}
+              loading={loading.background}
+              disabled={status.ffmpeg !== 'running'}
+              block
+            >
+              Update Background
+            </Button>
+          </Form.Item>
+        </Form>
+
+        <div style={{ marginTop: '8px' }}>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            Sets the persistent background color and optional text.
+          </Text>
+        </div>
+      </Card>
+
       {/* Content Update */}
       <Card
         title={

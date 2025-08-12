@@ -6,6 +6,7 @@
 'use strict';
 
 const logger = require('../utils/logger');
+const { CONFIG } = require('../config');
 
 class StreamController {
   constructor(fifoService, zmqService, ffmpegService, hlsService) {
@@ -16,7 +17,7 @@ class StreamController {
   }
 
   /**
-   * Handle stream updates (content, layer, filter)
+   * Handle stream updates (content, layer, filter, background)
    */
   async updateStream(req, res) {
     const { type, data } = req.body;
@@ -42,12 +43,26 @@ class StreamController {
           result = await this.zmqService.sendInstruction(command);
           message = result ? 'Filter command sent successfully' : 'Failed to send filter command';
           break;
+
+        case 'background':
+          if (data.color) {
+            CONFIG.background.color = data.color;
+          }
+          if (typeof data.text === 'string') {
+            CONFIG.background.text = data.text;
+          }
+          result = true;
+          message = 'Background updated successfully';
+          if (this.ffmpegService.isRunning()) {
+            await this.ffmpegService.restart();
+          }
+          break;
           
         default:
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Invalid update type. Use: content, layer, or filter',
-            validTypes: ['content', 'layer', 'filter']
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid update type. Use: content, layer, filter, or background',
+            validTypes: ['content', 'layer', 'filter', 'background']
           });
       }
 

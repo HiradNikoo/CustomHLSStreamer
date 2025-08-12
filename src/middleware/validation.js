@@ -165,10 +165,26 @@ function validateUpdateRequest(maxLayers = 2) {
         }
         break;
 
+      case 'background':
+        if (data.color && typeof data.color !== 'string') {
+          return res.status(400).json({
+            success: false,
+            message: 'Background update requires color to be a string'
+          });
+        }
+
+        if (data.text && typeof data.text !== 'string') {
+          return res.status(400).json({
+            success: false,
+            message: 'Background update requires text to be a string'
+          });
+        }
+        break;
+
       default:
         return res.status(400).json({
           success: false,
-          message: `Invalid update type: ${type}. Valid types are: content, layer, filter`
+          message: `Invalid update type: ${type}. Valid types are: content, layer, filter, background`
         });
     }
 

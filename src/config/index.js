@@ -42,11 +42,18 @@ const CONFIG = {
   fifos: {
     baseDir: process.env.FIFO_BASE_DIR || './fifos',
     content: 'content.fifo',
-    layers: process.env.FIFO_LAYERS ? 
-      process.env.FIFO_LAYERS.split(',') : 
+    layers: process.env.FIFO_LAYERS ?
+      process.env.FIFO_LAYERS.split(',') :
       ['overlay1.fifo', 'overlay2.fifo']
   },
-  
+
+  // Persistent background layer
+  background: {
+    color: process.env.BACKGROUND_COLOR || 'black',
+    text: process.env.BACKGROUND_TEXT || '',
+    size: process.env.BACKGROUND_SIZE || '1280x720'
+  },
+
   // Initial content
   initialContent: process.env.INITIAL_CONTENT || './assets/default.mp4',
   

@@ -9,10 +9,11 @@ A production-ready Node.js application for creating highly customizable live HLS
 🎥 **Dynamic Content Switching** - Update video content without interrupting the stream  
 🔄 **Real-time Filter Adjustments** - Modify overlays, text, and effects via ZeroMQ  
 📺 **Layered Overlays** - Support for multiple overlay layers (extensible)  
-🚀 **HLS Live Streaming** - Automatic segment generation and cleanup  
-🌐 **HTTP API** - RESTful API for real-time stream control  
-⚡ **Zero Downtime** - Seamless content transitions using FFmpeg concat demuxer  
+🚀 **HLS Live Streaming** - Automatic segment generation and cleanup
+🌐 **HTTP API** - RESTful API for real-time stream control
+⚡ **Zero Downtime** - Seamless content transitions using FFmpeg concat demuxer
 🛡️ **Production Ready** - Comprehensive error handling and logging
+🖼️ **Persistent Background Layer** - Configurable color and text always behind your overlays
 
 ### 🆕 New in Modular Version
 
@@ -144,6 +145,9 @@ INITIAL_CONTENT=./assets/default.mp4
 LOG_LEVEL=info
 FFMPEG_BINARY=ffmpeg
 FFMPEG_PRESET=ultrafast
+BACKGROUND_COLOR=black
+BACKGROUND_TEXT=""
+BACKGROUND_SIZE=1280x720
 ```
 
 ### Legacy Version
@@ -200,6 +204,16 @@ Add/change overlay on a specific layer:
 curl -X POST http://localhost:3000/update \
   -H "Content-Type: application/json" \
   -d '{"type":"layer","data":{"index":0,"path":"/path/to/overlay.png"}}'
+```
+
+### Update Background Layer
+
+Change the persistent background color or text:
+
+```bash
+curl -X POST http://localhost:3000/update \
+  -H "Content-Type: application/json" \
+  -d '{"type":"background","data":{"color":"#000000","text":"Starting Soon"}}'
 ```
 
 ### Send Real-time Filter Commands
