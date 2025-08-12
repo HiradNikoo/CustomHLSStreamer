@@ -107,6 +107,12 @@ describe('ZmqService', () => {
       const logs = mockLogger.getLogs();
       const debugLogs = logs.filter(log => log.level === 'debug');
       assert.isTrue(debugLogs.some(log => log.msg.includes('Sent ZMQ instruction')), 'Should log sent instruction');
+
+      // Verify log buffer updated
+      const zmqLogs = zmqService.getLogs();
+      assert.equal(zmqLogs.length, 1, 'Should store log entry');
+      assert.equal(zmqLogs[0].type, 'sent', 'Log type should be sent');
+      assert.equal(zmqLogs[0].message, command, 'Log message should be command');
     });
 
     test('should handle send errors', async () => {
@@ -121,6 +127,10 @@ describe('ZmqService', () => {
       const logs = mockLogger.getLogs();
       const errorLogs = logs.filter(log => log.level === 'error');
       assert.isTrue(errorLogs.some(log => log.msg.includes('Failed to send ZMQ instruction')), 'Should log error');
+
+      const zmqLogs = zmqService.getLogs();
+      assert.equal(zmqLogs.length, 1, 'Should store error log entry');
+      assert.equal(zmqLogs[0].type, 'error', 'Log type should be error');
     });
   });
 
@@ -167,6 +177,23 @@ describe('ZmqService', () => {
       const logs = mockLogger.getLogs();
       const warnLogs = logs.filter(log => log.level === 'warn');
       assert.isTrue(warnLogs.some(log => log.msg.includes('Error closing ZeroMQ socket')), 'Should log warning');
+    });
+  });
+
+  describe('log buffer', () => {
+    test('should clear logs', () => {
+      zmqService.addToLogBuffer('sent', 'test');
+      assert.equal(zmqService.getLogs().length, 1, 'Should have one log');
+      zmqService.clearLogs();
+      assert.equal(zmqService.getLogs().length, 0, 'Should clear logs');
+    });
+
+    test('should notify listeners on new log', () => {
+      const callback = jest.fn();
+      const unsubscribe = zmqService.onLog(callback);
+      zmqService.addToLogBuffer('sent', 'hello');
+      assert.isTrue(callback.mock.calls.length === 1, 'Listener should be called');
+      unsubscribe();
     });
   });
 });

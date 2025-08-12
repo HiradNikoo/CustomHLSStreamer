@@ -13,6 +13,7 @@ import StatusPanel from './components/StatusPanel';
 import APIDocumentation from './components/APIDocumentation';
 import ActivityLog from './components/ActivityLog';
 import FFmpegLogs from './components/FFmpegLogs';
+import ZmqLogs from './components/ZmqLogs';
 import { StreamService } from './services/StreamService';
 
 const { Header, Content } = Layout;
@@ -160,10 +161,15 @@ function App() {
           <Col xs={24}>
             <FFmpegLogs />
           </Col>
-          
+
+          {/* ZeroMQ Logs */}
+          <Col xs={24}>
+            <ZmqLogs />
+          </Col>
+
           {/* Activity Log */}
           <Col xs={24} xl={12}>
-            <ActivityLog 
+            <ActivityLog
               logs={logs}
               onClear={() => setLogs([])}
             />
