@@ -176,6 +176,91 @@ class StreamController {
       timestamp: new Date().toISOString()
     });
   }
+
+  /**
+   * Get FFmpeg logs
+   */
+  getLogs(req, res) {
+    try {
+      const logs = this.ffmpegService.getLogs();
+      res.json({
+        success: true,
+        logs: logs,
+        totalLogs: logs.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Get logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Clear FFmpeg logs
+   */
+  clearLogs(req, res) {
+    try {
+      this.ffmpegService.clearLogs();
+      res.json({
+        success: true,
+        message: 'Logs cleared successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Clear logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to clear logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Stream FFmpeg logs via Server-Sent Events (SSE)
+   */
+  streamLogs(req, res) {
+    // Set up SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+    // Send existing logs
+    const existingLogs = this.ffmpegService.getLogs();
+    for (const log of existingLogs) {
+      res.write(`data: ${JSON.stringify(log)}\n\n`);
+    }
+
+    // Subscribe to new logs
+    const unsubscribe = this.ffmpegService.onLog((logEntry) => {
+      res.write(`data: ${JSON.stringify(logEntry)}\n\n`);
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      unsubscribe();
+    });
+
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`);
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
+    });
+  }
 }
 
 module.exports = StreamController;

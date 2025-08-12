@@ -31,6 +31,11 @@ function createApiRoutes(streamController) {
   // Health check endpoint (GET /api/health)
   router.get('/health', (req, res) => streamController.healthCheck(req, res));
 
+  // FFmpeg logs endpoints
+  router.get('/logs', (req, res) => streamController.getLogs(req, res));
+  router.delete('/logs', (req, res) => streamController.clearLogs(req, res));
+  router.get('/logs/stream', (req, res) => streamController.streamLogs(req, res));
+
   return router;
 }
 

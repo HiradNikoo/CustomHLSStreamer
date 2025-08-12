@@ -21,6 +21,9 @@ class FFmpegService {
     this.isShuttingDown = false;
     this.fifoService = fifoService;
     this.hlsService = hlsService;
+    this.logBuffer = [];
+    this.maxLogBuffer = 1000;
+    this.logListeners = new Set();
   }
 
   /**
@@ -32,9 +35,10 @@ class FFmpegService {
       if (process.env.WSL_DISTRO_NAME || process.env.WSLENV) {
         return true;
       }
-      // Check for MSYS2/Git Bash environment
+      // Check for MSYS2/Git Bash environment - DISABLED for now due to FIFO issues
       if (process.env.MSYSTEM || process.env.MINGW_PREFIX) {
-        return true;
+        // MSYS2 mkfifo creates regular files, not real FIFOs, causing FFmpeg input errors
+        return false; 
       }
       return false;
     }
@@ -183,8 +187,14 @@ class FFmpegService {
     
     const args = this.buildArgs();
     
-    logger.info('Starting FFmpeg process...');
-    logger.debug('FFmpeg command:', CONFIG.ffmpeg.binary, args.join(' '));
+    const startMessage = 'Starting FFmpeg process...';
+    const commandMessage = `FFmpeg command: ${CONFIG.ffmpeg.binary} ${args.join(' ')}`;
+    
+    this.addToLogBuffer('system', startMessage);
+    this.addToLogBuffer('system', commandMessage);
+    
+    logger.info(startMessage);
+    logger.debug(commandMessage);
     
     this.process = spawn(CONFIG.ffmpeg.binary, args, {
       stdio: ['ignore', 'pipe', 'pipe']
@@ -192,12 +202,16 @@ class FFmpegService {
     
     // Handle FFmpeg stdout
     this.process.stdout.on('data', (data) => {
-      logger.debug('FFmpeg stdout:', data.toString().trim());
+      const output = data.toString().trim();
+      this.addToLogBuffer('stdout', output);
+      logger.debug('FFmpeg stdout:', output);
     });
     
     // Handle FFmpeg stderr (most FFmpeg output goes to stderr)
     this.process.stderr.on('data', (data) => {
       const output = data.toString().trim();
+      this.addToLogBuffer('stderr', output);
+      
       if (output.includes('frame=')) {
         // Filter out verbose frame information - only log occasionally
         if (Math.random() < 0.01) { // Log ~1% of frame messages
@@ -210,11 +224,15 @@ class FFmpegService {
     
     // Handle FFmpeg process exit
     this.process.on('close', (code, signal) => {
-      logger.warn(`FFmpeg process closed with code ${code}, signal ${signal}`);
+      const exitMessage = `FFmpeg process closed with code ${code}, signal ${signal}`;
+      this.addToLogBuffer('system', exitMessage);
+      logger.warn(exitMessage);
       this.process = null;
       
       if (!this.isShuttingDown) {
-        logger.warn('FFmpeg exited unexpectedly, restarting in 5 seconds...');
+        const restartMessage = 'FFmpeg exited unexpectedly, restarting in 5 seconds...';
+        this.addToLogBuffer('system', restartMessage);
+        logger.warn(restartMessage);
         setTimeout(() => {
           if (!this.isShuttingDown) {
             this.start();
@@ -224,7 +242,9 @@ class FFmpegService {
     });
     
     this.process.on('error', (error) => {
-      logger.error('FFmpeg process error:', error.message);
+      const errorMessage = `FFmpeg process error: ${error.message}`;
+      this.addToLogBuffer('error', errorMessage);
+      logger.error(errorMessage);
       this.process = null;
     });
     
@@ -289,6 +309,55 @@ class FFmpegService {
    */
   setShuttingDown(isShuttingDown) {
     this.isShuttingDown = isShuttingDown;
+  }
+
+  /**
+   * Add log entry to buffer and notify listeners
+   */
+  addToLogBuffer(type, message) {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      type: type,
+      message: message
+    };
+
+    this.logBuffer.push(logEntry);
+    
+    // Keep buffer size manageable
+    if (this.logBuffer.length > this.maxLogBuffer) {
+      this.logBuffer = this.logBuffer.slice(-this.maxLogBuffer);
+    }
+
+    // Notify all listeners
+    for (const listener of this.logListeners) {
+      try {
+        listener(logEntry);
+      } catch (error) {
+        logger.warn('Error notifying log listener:', error.message);
+      }
+    }
+  }
+
+  /**
+   * Get current log buffer
+   */
+  getLogs() {
+    return [...this.logBuffer];
+  }
+
+  /**
+   * Subscribe to real-time log updates
+   */
+  onLog(callback) {
+    this.logListeners.add(callback);
+    return () => this.logListeners.delete(callback);
+  }
+
+  /**
+   * Clear log buffer
+   */
+  clearLogs() {
+    this.logBuffer = [];
   }
 }
 

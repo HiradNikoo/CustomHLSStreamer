@@ -12,6 +12,7 @@ import StreamControls from './components/StreamControls';
 import StatusPanel from './components/StatusPanel';
 import APIDocumentation from './components/APIDocumentation';
 import ActivityLog from './components/ActivityLog';
+import FFmpegLogs from './components/FFmpegLogs';
 import { StreamService } from './services/StreamService';
 
 const { Header, Content } = Layout;
@@ -153,6 +154,11 @@ function App() {
               status={streamStatus}
               onRefresh={updateStatus}
             />
+          </Col>
+          
+          {/* FFmpeg Logs - Full Width for Better Visibility */}
+          <Col xs={24}>
+            <FFmpegLogs />
           </Col>
           
           {/* Activity Log */}

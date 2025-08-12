@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(taskkill:*)",
+      "Bash(cat:*)",
+      "Bash(ffmpeg:*)"
     ],
     "deny": []
   }
