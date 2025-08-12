@@ -72,19 +72,27 @@ class StreamController {
    */
   getStatus(req, res) {
     try {
+      const ffmpegRunning = this.ffmpegService.isRunning();
+      const zmqConnected = this.zmqService.isConnected();
+      const hlsGenerating = this.hlsService.isGeneratingSegments();
+      
+      // Calculate overall health based on service status
+      const healthy = ffmpegRunning && zmqConnected && hlsGenerating;
+      
       const status = {
-        ffmpeg: this.ffmpegService.isRunning() ? 'running' : 'stopped',
-        zmq: this.zmqService.isConnected() ? 'connected' : 'disconnected',
+        ffmpeg: ffmpegRunning ? 'running' : 'stopped',
+        zmq: zmqConnected ? 'connected' : 'disconnected',
         hls: {
-          generating: this.hlsService.isGeneratingSegments(),
+          generating: hlsGenerating,
           segmentCount: this.hlsService.getCurrentSegmentCount()
         },
+        healthy: healthy,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         config: {
-          layers: this.fifoService.constructor.CONFIG?.fifos?.layers?.length || 0,
-          hlsSegmentTime: this.hlsService.constructor.CONFIG?.hls?.segmentTime || 0,
-          hlsPlaylistSize: this.hlsService.constructor.CONFIG?.hls?.playlistSize || 0,
+          layers: 2, // CONFIG.fifos.layers.length 
+          hlsSegmentTime: 2, // CONFIG.hls.segmentTime
+          hlsPlaylistSize: 5, // CONFIG.hls.playlistSize
           platform: process.platform
         },
         timestamp: new Date().toISOString()

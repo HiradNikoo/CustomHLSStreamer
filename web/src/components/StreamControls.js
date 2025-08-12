@@ -12,14 +12,20 @@ import {
   Col,
   InputNumber,
   Slider,
-  message
+  message,
+  Tag
 } from 'antd';
 import {
   VideoCameraOutlined,
   PictureOutlined,
   FilterOutlined,
   SendOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  FileOutlined,
+  PlaySquareOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  MinusCircleOutlined
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -35,6 +41,59 @@ const StreamControls = ({ onAction, status, onLog }) => {
     layer: false,
     filter: false
   });
+
+  // Dynamic layer management
+  const [activeLayers, setActiveLayers] = useState([]);
+  const [availableLayers] = useState(Array.from({ length: 10 }, (_, i) => i)); // Support up to 10 layers
+
+  // Sample files available for selection
+  const sampleVideoFiles = [
+    { name: 'Video 1', path: './samples/video1.mp4', description: 'Sample video file 1', type: 'video' },
+    { name: 'Video 2', path: './samples/video2.mp4', description: 'Sample video file 2', type: 'video' }
+  ];
+
+  const sampleOverlayFiles = [
+    { name: 'Watermark PNG', path: './samples/watermark.png', description: 'PNG watermark overlay', type: 'image' },
+    { name: 'Video 1 (as overlay)', path: './samples/video1.mp4', description: 'Video file as overlay layer', type: 'video' },
+    { name: 'Video 2 (as overlay)', path: './samples/video2.mp4', description: 'Video file as overlay layer', type: 'video' }
+  ];
+
+  // Helper function to set file path in form
+  const selectSampleFile = (formInstance, fieldName, filePath) => {
+    formInstance.setFieldsValue({ [fieldName]: filePath });
+  };
+
+  // Get file type icon
+  const getFileTypeIcon = (type) => {
+    switch (type) {
+      case 'video': return <PlaySquareOutlined />;
+      case 'image': return <PictureOutlined />;
+      default: return <FileOutlined />;
+    }
+  };
+
+  // Get next available layer index
+  const getNextLayerIndex = () => {
+    for (let i = 0; i < availableLayers.length; i++) {
+      if (!activeLayers.includes(i)) {
+        return i;
+      }
+    }
+    return null;
+  };
+
+  // Add a new layer
+  const addLayer = () => {
+    const nextIndex = getNextLayerIndex();
+    if (nextIndex !== null) {
+      setActiveLayers([...activeLayers, nextIndex]);
+    }
+  };
+
+  // Remove a layer
+  const removeLayer = (layerIndex) => {
+    setActiveLayers(activeLayers.filter(index => index !== layerIndex));
+  };
 
   const handleUpdateContent = async (values) => {
     setLoading({ ...loading, content: true });
@@ -173,6 +232,31 @@ const StreamControls = ({ onAction, status, onLog }) => {
               style={{ background: '#262626', border: '1px solid #404040', color: '#ffffff' }}
             />
           </Form.Item>
+
+          {/* Sample Video File Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <Text style={{ color: '#ffffff', fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              <FileOutlined style={{ marginRight: '6px', color: '#1890ff' }} />
+              Sample Video Files:
+            </Text>
+            <Space wrap>
+              {sampleVideoFiles.map((file, index) => (
+                <Button
+                  key={index}
+                  size="small"
+                  icon={<PlaySquareOutlined />}
+                  onClick={() => selectSampleFile(contentForm, 'filePath', file.path)}
+                  style={{ 
+                    background: '#1a1a1a',
+                    border: '1px solid #1890ff40',
+                    color: '#1890ff'
+                  }}
+                >
+                  {file.name}
+                </Button>
+              ))}
+            </Space>
+          </div>
           
           <Form.Item style={{ marginBottom: 0 }}>
             <Button 
@@ -196,70 +280,155 @@ const StreamControls = ({ onAction, status, onLog }) => {
         </div>
       </Card>
 
-      {/* Layer Update */}
+      {/* Dynamic Overlay Layers */}
       <Card
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PictureOutlined style={{ color: '#1890ff' }} />
-            <Title level={5} style={{ margin: 0, color: '#ffffff' }}>
-              Overlay Layer
-            </Title>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PictureOutlined style={{ color: '#1890ff' }} />
+              <Title level={5} style={{ margin: 0, color: '#ffffff' }}>
+                Overlay Layers
+              </Title>
+              <Tag color="blue" style={{ margin: 0 }}>{activeLayers.length}</Tag>
+            </div>
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={addLayer}
+              disabled={getNextLayerIndex() === null}
+            >
+              Add Layer
+            </Button>
           </div>
         }
         size="small"
       >
-        <Form
-          form={layerForm}
-          layout="vertical"
-          onFinish={handleUpdateLayer}
-        >
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                label={<Text style={{ color: '#ffffff' }}>Layer</Text>}
-                name="layerIndex"
-                initialValue={0}
+        {/* Sample Overlay Files */}
+        <div style={{ marginBottom: activeLayers.length > 0 ? '20px' : '16px' }}>
+          <Text style={{ color: '#ffffff', fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+            <FileOutlined style={{ marginRight: '6px', color: '#1890ff' }} />
+            Sample Files (click to use):
+          </Text>
+          <Space wrap>
+            {sampleOverlayFiles.map((file, index) => (
+              <Button
+                key={index}
+                size="small"
+                icon={getFileTypeIcon(file.type)}
+                onClick={() => {
+                  if (activeLayers.length === 0) {
+                    addLayer();
+                  }
+                  // Wait a moment for state to update, then set the file
+                  setTimeout(() => {
+                    const layerIndex = activeLayers.length > 0 ? activeLayers[activeLayers.length - 1] : 0;
+                    document.querySelector(`input[name="layer-${layerIndex}-filePath"]`)?.focus();
+                    document.querySelector(`input[name="layer-${layerIndex}-filePath"]`)?.setAttribute('value', file.path);
+                  }, 100);
+                }}
+                style={{ 
+                  background: '#1a1a1a',
+                  border: `1px solid ${file.type === 'video' ? '#52c41a40' : '#faad1440'}`,
+                  color: file.type === 'video' ? '#52c41a' : '#faad14'
+                }}
               >
-                <Select style={{ background: '#262626' }}>
-                  <Option value={0}>Layer 0</Option>
-                  <Option value={1}>Layer 1</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={16}>
-              <Form.Item
-                label={<Text style={{ color: '#ffffff' }}>Overlay File Path</Text>}
-                name="filePath"
-                rules={[
-                  { required: true, message: 'Please enter overlay file path' }
-                ]}
+                {file.name}
+              </Button>
+            ))}
+          </Space>
+        </div>
+
+        {/* Active Layers */}
+        {activeLayers.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px 20px',
+            border: '2px dashed #404040',
+            borderRadius: '8px',
+            background: '#1a1a1a'
+          }}>
+            <PictureOutlined style={{ fontSize: '24px', color: '#8c8c8c', marginBottom: '8px' }} />
+            <br />
+            <Text style={{ color: '#8c8c8c' }}>No overlay layers configured</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              Click "Add Layer" or select a sample file to get started
+            </Text>
+          </div>
+        ) : (
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            {activeLayers.map((layerIndex) => (
+              <Card 
+                key={layerIndex}
+                size="small"
+                style={{ 
+                  background: '#1a1a1a', 
+                  border: '1px solid #303030'
+                }}
+                title={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#ffffff', fontSize: '14px' }}>
+                      Layer {layerIndex}
+                    </Text>
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<MinusCircleOutlined />}
+                      onClick={() => removeLayer(layerIndex)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                }
               >
-                <Input 
-                  placeholder="/path/to/overlay.png"
-                  style={{ background: '#262626', border: '1px solid #404040', color: '#ffffff' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item style={{ marginBottom: 0 }}>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              icon={<SendOutlined />}
-              loading={loading.layer}
-              disabled={status.ffmpeg !== 'running'}
-              block
-            >
-              Update Layer
-            </Button>
-          </Form.Item>
-        </Form>
+                <Form
+                  layout="vertical"
+                  onFinish={(values) => handleUpdateLayer({ ...values, layerIndex })}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Form.Item
+                    label={<Text style={{ color: '#ffffff', fontSize: '12px' }}>File Path</Text>}
+                    name={`layer-${layerIndex}-filePath`}
+                    rules={[
+                      { required: true, message: 'Please enter file path' }
+                    ]}
+                    style={{ marginBottom: '12px' }}
+                  >
+                    <Input 
+                      name={`layer-${layerIndex}-filePath`}
+                      placeholder="/path/to/overlay.png (or .mp4, .gif, etc.)"
+                      style={{ 
+                        background: '#262626', 
+                        border: '1px solid #404040', 
+                        color: '#ffffff',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </Form.Item>
+                  
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    icon={<SendOutlined />}
+                    loading={loading.layer}
+                    disabled={status.ffmpeg !== 'running'}
+                    size="small"
+                    block
+                  >
+                    Update Layer {layerIndex}
+                  </Button>
+                </Form>
+              </Card>
+            ))}
+          </Space>
+        )}
         
-        <div style={{ marginTop: '8px' }}>
+        <div style={{ marginTop: '12px' }}>
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            Add or update overlay layers (PNG, GIF, video files). 
-            Supports transparency and real-time positioning.
+            Supports videos (.mp4, .avi, .mov), images (.png, .jpg, .gif), and any FFmpeg-compatible format. 
+            Videos can be looped as overlay layers with transparency support.
           </Text>
         </div>
       </Card>
