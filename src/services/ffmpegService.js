@@ -24,12 +24,30 @@ class FFmpegService {
   }
 
   /**
+   * Detect if we can use real FIFOs (same logic as FifoService)
+   */
+  canUseFifos() {
+    if (process.platform === 'win32') {
+      // Check for WSL environment
+      if (process.env.WSL_DISTRO_NAME || process.env.WSLENV) {
+        return true;
+      }
+      // Check for MSYS2/Git Bash environment
+      if (process.env.MSYSTEM || process.env.MINGW_PREFIX) {
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Build FFmpeg command arguments for HLS streaming
    */
   buildArgs() {
     const args = [];
     
-    if (process.platform === 'win32') {
+    if (!this.canUseFifos()) {
       // Simplified Windows approach - use test pattern for now
       args.push(
         '-f', 'lavfi',
@@ -56,7 +74,7 @@ class FFmpegService {
         '-ar', '48000'
       );
     } else {
-      // Unix-like systems - use FIFO approach
+      // Systems with FIFO support - use FIFO approach
       // Input arguments - Main content FIFO
       args.push(
         '-f', 'concat',
@@ -111,7 +129,7 @@ class FFmpegService {
    * Build filter_complex string for overlays and ZMQ integration
    */
   buildFilterComplex() {
-    if (process.platform === 'win32') {
+    if (!this.canUseFifos()) {
       // Simplified filter for Windows - just add text overlay without font file
       return `[0:v]drawtext=text='HLS Stream - Windows Mode':fontsize=24:fontcolor=white:x=10:y=10[vout];[1:a]anull[aout]`;
     }
@@ -243,7 +261,7 @@ class FFmpegService {
    * Initialize content with default file
    */
   async initializeContent() {
-    if (process.platform === 'win32') {
+    if (!this.canUseFifos()) {
       logger.info('Windows mode: Using built-in test pattern, no content initialization needed');
       return;
     }
