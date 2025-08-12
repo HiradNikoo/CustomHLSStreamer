@@ -24,6 +24,7 @@ jest.mock('../../../src/config', () => ({
     http: { host: '0.0.0.0', port: 3000 },
     hls: { segmentTime: 2, playlistSize: 5, outputDir: './test_hls', playlistName: 'stream.m3u8' },
     fifos: { baseDir: './test_fifos', layers: ['overlay1.fifo', 'overlay2.fifo'] },
+    background: { color: 'black', text: '', size: '1280x720' },
     initialContent: './test_assets/test.mp4',
     zmq: { port: 5555 },
     ffmpeg: { binary: 'echo', preset: 'ultrafast' }
@@ -102,13 +103,15 @@ describe('FFmpegService', () => {
       const inputCount = args.filter(arg => arg === '-i').length;
       
       if (process.platform === 'win32') {
-        // Windows uses 2 inputs (video testsrc + audio sine)
-        assert.equal(inputCount, 2, 'Windows should have 2 inputs (testsrc + sine)');
-        assert.isTrue(args.includes('testsrc=duration=3600:size=1280x720:rate=30'), 'Should include test video source');
-        assert.isTrue(args.includes('sine=frequency=1000:duration=3600'), 'Should include test audio source');
+        // Windows uses 2 inputs (background video + silent audio)
+        assert.equal(inputCount, 2, 'Windows should have 2 inputs (background video + silent audio)');
+        assert.isTrue(args.includes('color=c=black:size=1280x720:rate=30'), 'Should include background video source');
+        assert.isTrue(args.includes('anullsrc=channel_layout=stereo:sample_rate=48000'), 'Should include silent audio source');
       } else {
-        // Unix uses 3 inputs (1 content + 2 layers)
-        assert.equal(inputCount, 3, 'Unix should have 3 inputs (1 content + 2 layers)');
+        // Unix uses 5 inputs (background video/audio + content + 2 layers)
+        assert.equal(inputCount, 5, 'Unix should have 5 inputs (background + content + 2 layers)');
+        assert.isTrue(args.includes('color=c=black:size=1280x720:rate=30'), 'Should include background video source');
+        assert.isTrue(args.includes('anullsrc=channel_layout=stereo:sample_rate=48000'), 'Should include silent audio source');
         assert.isTrue(args.includes('./test_fifos/content.fifo'), 'Should include content FIFO');
         assert.isTrue(args.includes('./test_fifos/overlay1.fifo'), 'Should include first layer FIFO');
         assert.isTrue(args.includes('./test_fifos/overlay2.fifo'), 'Should include second layer FIFO');
@@ -128,7 +131,7 @@ describe('FFmpegService', () => {
       assert.isTrue(filter.includes('overlay'), 'Should include overlay filter');
       assert.isTrue(filter.includes('zmq'), 'Should include ZMQ filter');
       assert.isTrue(filter.includes('amix'), 'Should include audio mixing');
-      assert.isTrue(filter.includes('inputs=3'), 'Should mix 3 audio inputs');
+      assert.isTrue(filter.includes('inputs=4'), 'Should mix 4 audio inputs');
     });
 
     test('should return simplified filter on Windows', () => {
@@ -137,8 +140,7 @@ describe('FFmpegService', () => {
       }
       
       const filter = ffmpegService.buildFilterComplex();
-      assert.isTrue(filter.includes('drawtext'), 'Windows should use drawtext filter');
-      assert.isTrue(filter.includes('vout'), 'Should include vout output');
+      assert.isTrue(filter.includes('zmq'), 'Windows should include ZMQ filter');
       assert.isTrue(filter.includes('aout'), 'Should include aout output');
     });
   });

@@ -154,7 +154,14 @@ export class StreamService {
             }
           };
           break;
-          
+
+        case 'background':
+          payload = {
+            type: 'background',
+            data
+          };
+          break;
+
         default:
           throw new Error(`Unknown update type: ${type}`);
       }
