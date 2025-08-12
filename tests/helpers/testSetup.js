@@ -5,8 +5,8 @@
 
 'use strict';
 
-// Increase timeout for integration tests
-jest.setTimeout(10000);
+// Increase timeout for tests that may spawn ffmpeg processes
+jest.setTimeout(30000);
 
 // Mock console methods to reduce noise during tests
 const originalConsoleLog = console.log;

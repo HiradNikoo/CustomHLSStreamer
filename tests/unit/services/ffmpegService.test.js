@@ -11,7 +11,11 @@ const FFmpegService = require('../../../src/services/ffmpegService');
 // Mock child_process
 jest.mock('child_process', () => ({
   spawn: jest.fn(),
-  exec: jest.fn()
+  exec: jest.fn((cmd, callback) => {
+    if (typeof callback === 'function') {
+      callback(null, { stdout: '', stderr: '' });
+    }
+  })
 }));
 
 // Mock the config
