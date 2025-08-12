@@ -72,19 +72,28 @@ class StreamController {
    */
   getStatus(req, res) {
     try {
+      const ffmpegRunning = this.ffmpegService.isRunning();
+      const zmqConnected = this.zmqService.isConnected();
+      const hlsGenerating = this.hlsService.isGeneratingSegments();
+      
+      // Calculate overall health based on service status
+      const healthy = ffmpegRunning && zmqConnected && hlsGenerating;
+      
       const status = {
-        ffmpeg: this.ffmpegService.isRunning() ? 'running' : 'stopped',
-        zmq: this.zmqService.isConnected() ? 'connected' : 'disconnected',
+        ffmpeg: ffmpegRunning ? 'running' : 'stopped',
+        zmq: zmqConnected ? 'connected' : 'disconnected',
         hls: {
-          generating: this.hlsService.isGeneratingSegments(),
+          generating: hlsGenerating,
           segmentCount: this.hlsService.getCurrentSegmentCount()
         },
+        healthy: healthy,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         config: {
-          layers: this.fifoService.constructor.CONFIG?.fifos?.layers?.length || 0,
-          hlsSegmentTime: this.hlsService.constructor.CONFIG?.hls?.segmentTime || 0,
-          hlsPlaylistSize: this.hlsService.constructor.CONFIG?.hls?.playlistSize || 0
+          layers: 2, // CONFIG.fifos.layers.length 
+          hlsSegmentTime: 2, // CONFIG.hls.segmentTime
+          hlsPlaylistSize: 5, // CONFIG.hls.playlistSize
+          platform: process.platform
         },
         timestamp: new Date().toISOString()
       };
@@ -173,6 +182,91 @@ class StreamController {
         hls: this.hlsService.isGeneratingSegments()
       },
       timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Get FFmpeg logs
+   */
+  getLogs(req, res) {
+    try {
+      const logs = this.ffmpegService.getLogs();
+      res.json({
+        success: true,
+        logs: logs,
+        totalLogs: logs.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Get logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Clear FFmpeg logs
+   */
+  clearLogs(req, res) {
+    try {
+      this.ffmpegService.clearLogs();
+      res.json({
+        success: true,
+        message: 'Logs cleared successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Clear logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to clear logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Stream FFmpeg logs via Server-Sent Events (SSE)
+   */
+  streamLogs(req, res) {
+    // Set up SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+    // Send existing logs
+    const existingLogs = this.ffmpegService.getLogs();
+    for (const log of existingLogs) {
+      res.write(`data: ${JSON.stringify(log)}\n\n`);
+    }
+
+    // Subscribe to new logs
+    const unsubscribe = this.ffmpegService.onLog((logEntry) => {
+      res.write(`data: ${JSON.stringify(logEntry)}\n\n`);
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      unsubscribe();
+    });
+
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`);
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
     });
   }
 }

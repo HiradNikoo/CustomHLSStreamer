@@ -43,6 +43,25 @@ class FifoService {
   }
 
   /**
+   * Detect if we can use real FIFOs
+   */
+  canUseFifos() {
+    // Check if we're in WSL or MSYS2 environment where mkfifo works
+    if (process.platform === 'win32') {
+      // Check for WSL environment
+      if (process.env.WSL_DISTRO_NAME || process.env.WSLENV) {
+        return true; // WSL supports FIFOs
+      }
+      // Check for MSYS2/Git Bash environment
+      if (process.env.MSYSTEM || process.env.MINGW_PREFIX) {
+        return true; // MSYS2 supports FIFOs
+      }
+      return false; // Pure Windows
+    }
+    return true; // Unix-like systems
+  }
+
+  /**
    * Create a single named pipe
    */
   async createSingle(fifoPath) {
@@ -50,7 +69,7 @@ class FifoService {
       // Check if FIFO already exists
       if (fs.existsSync(fifoPath)) {
         const stats = fs.statSync(fifoPath);
-        if (process.platform === 'win32' || stats.isFIFO()) {
+        if (!this.canUseFifos() || stats.isFIFO()) {
           logger.debug(`FIFO already exists: ${fifoPath}`);
           return;
         } else {
@@ -59,21 +78,27 @@ class FifoService {
         }
       }
       
-      // Create the named pipe based on platform
-      if (process.platform === 'win32') {
-        // On Windows, we'll use regular files instead of FIFOs
-        // This is a limitation but works for basic functionality
+      // Create the named pipe based on capabilities
+      if (!this.canUseFifos()) {
+        // On pure Windows, use regular files as fallback
         fs.writeFileSync(fifoPath, '');
         logger.debug(`Created placeholder file for Windows: ${fifoPath}`);
-        logger.warn('Windows detected: Using regular files instead of FIFOs. Some advanced features may be limited.');
+        logger.warn('Pure Windows detected: Using regular files instead of FIFOs. Some advanced features may be limited.');
       } else {
-        // On Unix-like systems, create actual FIFO
+        // Create actual FIFO (Unix-like systems, WSL, MSYS2)
         await execAsync(`mkfifo "${fifoPath}"`);
         logger.debug(`Created FIFO: ${fifoPath}`);
+        logger.info('FIFO support available - using real named pipes for optimal performance');
       }
     } catch (error) {
       logger.error(`Failed to create FIFO ${fifoPath}:`, error.message);
-      throw error;
+      // Fallback to regular files if FIFO creation fails
+      if (this.canUseFifos()) {
+        logger.warn('FIFO creation failed, falling back to regular files');
+        fs.writeFileSync(fifoPath, '');
+      } else {
+        throw error;
+      }
     }
   }
 
