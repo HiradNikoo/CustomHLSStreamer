@@ -36,6 +36,11 @@ function createApiRoutes(streamController) {
   router.delete('/logs', (req, res) => streamController.clearLogs(req, res));
   router.get('/logs/stream', (req, res) => streamController.streamLogs(req, res));
 
+  // ZeroMQ logs endpoints
+  router.get('/zmq/logs', (req, res) => streamController.getZmqLogs(req, res));
+  router.delete('/zmq/logs', (req, res) => streamController.clearZmqLogs(req, res));
+  router.get('/zmq/logs/stream', (req, res) => streamController.streamZmqLogs(req, res));
+
   return router;
 }
 

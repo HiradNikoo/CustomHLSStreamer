@@ -269,6 +269,85 @@ class StreamController {
       clearInterval(keepAlive);
     });
   }
+
+  /**
+   * Get ZeroMQ logs
+   */
+  getZmqLogs(req, res) {
+    try {
+      const logs = this.zmqService.getLogs();
+      res.json({
+        success: true,
+        logs,
+        totalLogs: logs.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Get ZMQ logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get ZMQ logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Clear ZeroMQ logs
+   */
+  clearZmqLogs(req, res) {
+    try {
+      this.zmqService.clearLogs();
+      res.json({
+        success: true,
+        message: 'ZMQ logs cleared successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Clear ZMQ logs error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to clear ZMQ logs',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Stream ZeroMQ logs via Server-Sent Events (SSE)
+   */
+  streamZmqLogs(req, res) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+    const existingLogs = this.zmqService.getLogs();
+    for (const log of existingLogs) {
+      res.write(`data: ${JSON.stringify(log)}\n\n`);
+    }
+
+    const unsubscribe = this.zmqService.onLog((logEntry) => {
+      res.write(`data: ${JSON.stringify(logEntry)}\n\n`);
+    });
+
+    req.on('close', () => {
+      unsubscribe();
+    });
+
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`);
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
+    });
+  }
 }
 
 module.exports = StreamController;
