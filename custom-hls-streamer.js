@@ -612,9 +612,22 @@ function setupHttpServer() {
           const filterResult = await sendInstruction(command);
           res.json({ success: filterResult, message: filterResult ? 'Filter command sent' : 'Failed to send filter command' });
           break;
-          
+
+        case 'background':
+          if (data.color) {
+            CONFIG.background.color = data.color;
+          }
+          if (typeof data.text === 'string') {
+            CONFIG.background.text = data.text;
+          }
+          if (ffmpegProcess) {
+            await restartFFmpeg();
+          }
+          res.json({ success: true, message: 'Background updated' });
+          break;
+
         default:
-          res.status(400).json({ success: false, message: 'Invalid update type. Use: content, layer, or filter' });
+          res.status(400).json({ success: false, message: 'Invalid update type. Use: content, layer, filter, or background' });
       }
     } catch (error) {
       logger.error('API error:', error.message);

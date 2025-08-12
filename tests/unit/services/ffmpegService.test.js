@@ -259,7 +259,7 @@ describe('FFmpegService', () => {
       fs.existsSync = originalExistsSync;
     });
 
-    test('should create test pattern if initial content does not exist on Unix', async () => {
+    test('should create blank placeholder if initial content does not exist on Unix', async () => {
       if (process.platform === 'win32') {
         return; // Skip on Windows
       }
@@ -281,10 +281,10 @@ describe('FFmpegService', () => {
       const logs = mockLogger.getLogs();
       const warnLogs = logs.filter(log => log.level === 'warn');
       const infoLogs = logs.filter(log => log.level === 'info');
-      
+
       assert.isTrue(warnLogs.some(log => log.msg.includes('Initial content file not found')), 'Should log warning');
-      assert.isTrue(infoLogs.some(log => log.msg.includes('Creating a basic test pattern')), 'Should log test pattern creation');
-      
+      assert.isTrue(infoLogs.some(log => log.msg.includes('Creating a blank placeholder')), 'Should log blank placeholder creation');
+
       // Restore
       fs.existsSync = originalExistsSync;
       util.promisify = originalPromisify;

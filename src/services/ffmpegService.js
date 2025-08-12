@@ -307,15 +307,15 @@ class FFmpegService {
       await this.fifoService.writeContent(CONFIG.initialContent);
     } else {
       logger.warn(`Initial content file not found: ${CONFIG.initialContent}`);
-      logger.info('Creating a basic test pattern as initial content...');
-      
+      logger.info('Creating a blank placeholder video as initial content...');
+
       try {
-        const testPatternPath = path.join(CONFIG.hls.outputDir, 'test_pattern.mp4');
-        await execAsync(`${CONFIG.ffmpeg.binary} -f lavfi -i testsrc=duration=60:size=1280x720:rate=30 -f lavfi -i sine=frequency=1000:duration=60 -c:v libx264 -c:a aac -t 60 "${testPatternPath}" -y`);
-        await this.fifoService.writeContent(testPatternPath);
-        logger.info('Created and initialized with test pattern');
+        const blankPath = path.join(CONFIG.hls.outputDir, 'blank.mp4');
+        await execAsync(`${CONFIG.ffmpeg.binary} -f lavfi -i color=c=${CONFIG.background.color}:size=${CONFIG.background.size}:rate=30 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -c:v libx264 -c:a aac -t 60 "${blankPath}" -y`);
+        await this.fifoService.writeContent(blankPath);
+        logger.info('Created and initialized with blank placeholder');
       } catch (error) {
-        logger.error('Failed to create test pattern:', error.message);
+        logger.error('Failed to create blank placeholder:', error.message);
       }
     }
   }
